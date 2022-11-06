@@ -13,10 +13,13 @@ from pysmartthings.device import DeviceEntity
 
 from homeassistant.components.number import NumberEntity, NumberMode
 
+from homeassistant.components.sensor import SensorDeviceClass
+
+
 from . import SmartThingsEntity
 from .const import DATA_BROKERS, DOMAIN, UNIT_MAP
 
-from homeassistant.const import PERCENTAGE, DEVICE_CLASS_TEMPERATURE
+from homeassistant.const import PERCENTAGE
 
 Map = namedtuple(
     "map",
@@ -118,16 +121,17 @@ class SmartThingsNumber(SmartThingsEntity, NumberEntity):
         self._attribute = attribute
         self._command = command
         self._name = name
-        self._attr_unit_of_measurement = unit_of_measurement
+        self._attr_native_unit_of_measurement = unit_of_measurement
         self._icon = icon
-        self._attr_min_value = min_value
-        self._attr_max_value = max_value
-        self._attr_step = step
+        self._attr_native_min_value = min_value
+        self._attr_native_max_value = max_value
+        self._attr_native_step = step
         self._attr_mode = mode
 
-    async def async_set_value(self, value: float) -> None:
+    async def async_set_native_value(self, value: float) -> None:
         """Set the number value."""
         await getattr(self._device, self._command)(int(value), set_status=True)
+        self.async_write_ha_state()
 
     @property
     def name(self) -> str:
@@ -140,7 +144,7 @@ class SmartThingsNumber(SmartThingsEntity, NumberEntity):
         return f"{self._device.device_id}.{self._attribute}"
 
     @property
-    def value(self) -> float:
+    def native_value(self) -> float:
         """Return  Value."""
         return self._device.status.attributes[self._attribute].value
 
@@ -150,25 +154,25 @@ class SmartThingsNumber(SmartThingsEntity, NumberEntity):
         return self._icon
 
     @property
-    def min_value(self) -> float:
+    def native_min_value(self) -> float:
         """Define mimimum level."""
-        return self._attr_min_value
+        return self._attr_native_min_value
 
     @property
-    def max_value(self) -> float:
+    def native_max_value(self) -> float:
         """Define maximum level."""
-        return self._attr_max_value
+        return self._attr_native_max_value
 
     @property
-    def step(self) -> float:
+    def native_step(self) -> float:
         """Define stepping size"""
-        return self._attr_step
+        return self._attr_native_step
 
     @property
-    def unit_of_measurement(self) -> str | None:
+    def native_unit_of_measurement(self) -> str | None:
         """Return unit of measurement"""
         unit = self._device.status.attributes[self._attribute].unit
-        return UNIT_MAP.get(unit) if unit else self._attr_unit_of_measurement
+        return UNIT_MAP.get(unit) if unit else self._attr_native_unit_of_measurement
 
     @property
     def mode(self) -> Literal["auto", "slider", "box"]:
@@ -204,7 +208,7 @@ class SamsungOcfTemperatureNumber(SmartThingsEntity, NumberEntity):
         tasks.append(self._device.execute(self._page))
         asyncio.gather(*tasks)
 
-    async def async_set_value(self, value: float) -> None:
+    async def async_set_native_value(self, value: float) -> None:
         """Set the number value."""
         result = await self._device.execute(self._page, {"temperature": value})
         if result:
@@ -233,7 +237,7 @@ class SamsungOcfTemperatureNumber(SmartThingsEntity, NumberEntity):
         return f"{self._device.device_id}.{_unique_id}"
 
     @property
-    def value(self) -> float:
+    def native_value(self) -> float:
         """Return  Value."""
         if not self.init_bool:
             self.startup()
@@ -252,7 +256,7 @@ class SamsungOcfTemperatureNumber(SmartThingsEntity, NumberEntity):
         return "mdi:thermometer-lines"
 
     @property
-    def min_value(self) -> float:
+    def native_min_value(self) -> float:
         """Define mimimum level."""
         if self._device.status.attributes[Attribute.data].data["href"] == self._page:
             self.min_value_state = int(
@@ -263,7 +267,7 @@ class SamsungOcfTemperatureNumber(SmartThingsEntity, NumberEntity):
         return self.min_value_state
 
     @property
-    def max_value(self) -> float:
+    def native_max_value(self) -> float:
         """Define maximum level."""
         if self._device.status.attributes[Attribute.data].data["href"] == self._page:
             self.max_value_state = int(
@@ -274,12 +278,12 @@ class SamsungOcfTemperatureNumber(SmartThingsEntity, NumberEntity):
         return self.max_value_state
 
     @property
-    def step(self) -> float:
+    def native_step(self) -> float:
         """Define stepping size"""
         return 1
 
     @property
-    def unit_of_measurement(self) -> str | None:
+    def native_unit_of_measurement(self) -> str | None:
         """Return unit of measurement"""
         if self._device.status.attributes[Attribute.data].data["href"] == self._page:
             self.unit_state = self._device.status.attributes[Attribute.data].value[
@@ -295,4 +299,4 @@ class SamsungOcfTemperatureNumber(SmartThingsEntity, NumberEntity):
     @property
     def device_class(self) -> str | None:
         """Return Device Class."""
-        return DEVICE_CLASS_TEMPERATURE
+        return SensorDeviceClass.TEMPERATURE
